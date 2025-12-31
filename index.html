@@ -1,189 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Midnight Drop</title>
-  <style>
-    :root {
-      --bg: #0b0f14;
-      --fg: #e6e9ef;
-      --accent: #6cf;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(1200px 600px at 50% -10%, #182033, var(--bg));
-      color: var(--fg);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
-    }
-    .card {
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 28px 32px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-      width: min(92vw, 520px);
-      text-align: center;
-    }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; font-weight: 600; }
-    p { margin: 0 0 18px; opacity: 0.9; }
-    .countdown {
-      font-variant-numeric: tabular-nums;
-      font-size: 3rem;
-      letter-spacing: 0.08em;
-      margin: 16px 0 10px;
-      color: var(--accent);
-    }
-    .hint { font-size: 0.85rem; opacity: 0.7; }
-    button {
-      appearance: none;
-      border: 0;
-      border-radius: 999px;
-      padding: 12px 18px;
-      font-weight: 600;
-      cursor: pointer;
-      background: linear-gradient(135deg, #6cf, #9ef);
-      color: #051018;
-      box-shadow: 0 8px 24px rgba(108,204,255,0.35);
-    }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .hidden { display: none; }
-    .gif {
-      margin-top: 18px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px dashed rgba(255,255,255,0.2);
-      aspect-ratio: 16 / 9;
-      display: grid;
-      place-items: center;
-      opacity: 0.9;
-    }
-    .gif span { opacity: 0.7; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Midnight Drop – Auto Adjust</title>
+<style>
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+.countdown {
+  font-size: 3rem;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 20px;
+}
+img {
+  max-width: 90vw;
+  max-height: 50vh;
+}
+button {
+  font-size: 1.2rem;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+</style>
 </head>
 <body>
-  <div class="card">
-    
+<div>
+  <div id="countdown" class="countdown">--:--:--</div>
+  <button id="enable">Enable Audio</button>
+  <img id="gifImg" src="first.gif" alt="Countdown GIF" />
+  <audio id="audio" src="music.mp3" preload="auto"></audio>
+</div>
+<script>
+const audio = document.getElementById('audio');
+const enableBtn = document.getElementById('enable');
+const countdownEl = document.getElementById('countdown');
+const gifImg = document.getElementById('gifImg');
+const OFFSET = 6*60 + 14; // 6:14
+let audioEnabled = false;
 
-    <div id="countdown" class="countdown">--:--:--</div>
+enableBtn.onclick = async () => {
+  try {
+    audio.volume = 0;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = 1;
+    audioEnabled = true;
+    enableBtn.disabled = true;
+    enableBtn.textContent = 'Audio Enabled';
 
-    <button id="enableBtn">Enable audio</button>
-    
+    schedulePlayback();
+  } catch(e){console.error(e); alert('Failed to enable audio. Click again.');}
+};
 
-    <div id="gif" class="gif">
-      <img id="gifImg" src="first.gif" alt="Countdown GIF" style="width:100%;height:100%;object-fit:cover;" />
-    </div>
+function nextMidnight(){
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24,0,0,0);
+  return midnight;
+}
 
-    <audio id="audio" src="music.mp3" preload="auto"></audio>
-  </div>
+function format(ms){
+  const total = Math.max(0, Math.floor(ms/1000));
+  const h = String(Math.floor(total/3600)).padStart(2,'0');
+  const m = String(Math.floor((total%3600)/60)).padStart(2,'0');
+  const s = String(total%60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
 
-  <script>
-    const countdownEl = document.getElementById('countdown');
-    const enableBtn = document.getElementById('enableBtn');
-    const audio = document.getElementById('audio');
-    const gif = document.getElementById('gif');
+function tick(){
+  const now = new Date();
+  const midnight = nextMidnight();
+  const diff = midnight - now;
+  countdownEl.textContent = format(diff);
+  if(diff <=0){
+    countdownEl.textContent = '00:00:00';
+    gifImg.src = 'image.gif';
+  }
+}
+setInterval(tick, 250);
 
-    const TARGET_OFFSET_SECONDS = 6 * 60 + 14; // 6:14
+function schedulePlayback(){
+  if(!audioEnabled) return;
+  const now = new Date();
+  const midnight = nextMidnight();
+  const msUntilMidnight = midnight - now;
 
-    let audioEnabled = false;
-    let fired = false;
+  // If less than 3 mins left, start immediately at adjusted position
+  if(msUntilMidnight <= 3*60*1000){
+    const elapsed = 3*60*1000 - msUntilMidnight; // how much should have played
+    const seekTime = Math.min(OFFSET, elapsed/1000);
+    audio.currentTime = seekTime;
+    audio.play();
+    console.log('Starting immediately, skipped to', seekTime, 'seconds');
+    return;
+  }
 
-    enableBtn.addEventListener('click', async () => {
-      try {
-        // Prime audio with a silent play/pause to unlock autoplay
-        audio.volume = 0;
-        await audio.play();
-        audio.pause();
-        audio.currentTime = 0;
-        audio.volume = 1;
-        audioEnabled = true;
-        enableBtn.textContent = 'Audio enabled ✓';
-        enableBtn.disabled = true;
-      } catch (e) {
-        console.error(e);
-        alert('Could not enable audio. Try clicking again.');
-      }
-    });
-
-    function nextMidnight() {
-      const now = new Date();
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 0, 0);
-      return midnight;
-    }
-
-    function format(ms) {
-      const total = Math.max(0, Math.floor(ms / 1000));
-      const h = String(Math.floor(total / 3600)).padStart(2, '0');
-      const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
-      const s = String(total % 60).padStart(2, '0');
-      return `${h}:${m}:${s}`;
-    }
-
-    function tick() {
-      const now = new Date();
-      const midnight = nextMidnight();
-      const diff = midnight - now;
-      countdownEl.textContent = format(diff);
-
-      if (diff <= 0 && !fired) {
-        fired = true;
-        triggerMidnight();
-      }
-    }
-
-    async function triggerMidnight() {
-      countdownEl.textContent = '00:00:00';
-      gifImg.src = 'image.gif';
-
-      if (!audioEnabled) {
-        console.warn('Audio not enabled; cannot autoplay.');
-        return;
-      }
-
-      try {
-        // Ensure metadata is ready before seeking
-        if (audio.readyState < 1) {
-          await new Promise(res => audio.addEventListener('loadedmetadata', res, { once: true }));
-        }
-        audio.currentTime = TARGET_OFFSET_SECONDS;
-        await audio.play();
-      } catch (e) {
-        console.error('Playback failed:', e);
-      }
-    }
-
-    // Start audio early so that it reaches 6:14 exactly at midnight
-    function schedulePlayback() {
-      if (!audioEnabled) return;
-      const now = new Date();
-      const midnight = nextMidnight();
-      const msUntilMidnight = midnight - now;
-      const msUntilStart = msUntilMidnight - TARGET_OFFSET_SECONDS * 1000;
-
-      if (msUntilStart <= 0) return; // too late
-
-      setTimeout(async () => {
-        try {
-          if (audio.readyState < 1) {
-            await new Promise(res => audio.addEventListener('loadedmetadata', res, { once: true }));
-          }
-          audio.currentTime = 0;
-          await audio.play();
-        } catch (e) {
-          console.error(e);
-        }
-      }, msUntilStart);
-    }
-
-    enableBtn.addEventListener('click', schedulePlayback);
-
-    tick();
-    setInterval(tick, 250);
-  </script>
+  // normal schedule
+  const startTime = Math.max(0, msUntilMidnight - OFFSET*1000);
+  setTimeout(async () => {
+    try{
+      audio.currentTime = 0;
+      await audio.play();
+    }catch(e){console.error(e);}
+  }, startTime);
+}
+</script>
 </body>
 </html>
